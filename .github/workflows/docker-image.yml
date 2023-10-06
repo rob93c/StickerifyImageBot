@@ -43,3 +43,15 @@ jobs:
           tags: ${{ steps.metadata.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Delete Docker tags
+        if: github.ref == 'refs/heads/main'
+        run: |
+          tags_to_keep=("latest" "native")
+          tags=$(curl -s "https://hub.docker.com/v2/repositories/rob93c/stickerify/tags/" | jq -r '.results[].name')
+
+          for tag in $tags; do
+            if [[ ! " ${tags_to_keep[@]} " =~ " ${tag} " ]]; then
+              docker rmi rob93c/stickerify:$tag
+            fi
+          done
