@@ -32,14 +32,24 @@ jobs:
             rob93c/stickerify
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
             type=ref,event=pr
+
+      - name: Set Docker tags
+        id: docker-tags
+        run: |
+          cleaned_tags=${{ steps.metadata.outputs.tags }}
+          if [[ " ${{ steps.metadata.outputs.tags }} " =~ "stickerify:latest" ]]; then
+            cleaned_tags=("***/stickerify:latest")
+          fi
+          echo "cleaned_tags=${cleaned_tags}" >> "$GITHUB_OUTPUT"
 
       - name: Upload Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.metadata.outputs.tags }}
+          tags: ${{ steps.docker-tags.outputs.cleaned_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
