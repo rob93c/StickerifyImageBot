@@ -29,17 +29,9 @@ public record TelegramRequest(Message message) {
 	private static final String HELP_COMMAND = "/help";
 
 	public TelegramFile getFile() {
-		return Stream.of(message.photo(), message.document(), message.sticker(),
-						message.video(), message.videoNote(),
-						message.audio(), message.voice())
-				.filter(Objects::nonNull)
-				.findFirst()
-				.map(inputFile -> switch (inputFile) {
-					case PhotoSize[] photos when photos.length > 0 -> Arrays.stream(photos)
-							.map(photo -> new TelegramFile(photo.fileId(), photo.fileSize()))
-							.filter(TelegramFile::canBeDownloaded)
-							.max(comparing(TelegramFile::size))
-							.orElse(TelegramFile.TOO_LARGE);
+		return getMessageMedia()
+				.map(media -> switch (media) {
+					case PhotoSize[] photos when photos.length > 0 -> getBestPhoto(photos);
 					case Document document -> new TelegramFile(document.fileId(), document.fileSize());
 					case Sticker sticker -> new TelegramFile(sticker.fileId(), sticker.fileSize());
 					case Video video -> new TelegramFile(video.fileId(), video.fileSize());
@@ -47,6 +39,22 @@ public record TelegramRequest(Message message) {
 					default -> TelegramFile.NOT_SUPPORTED;
 				})
 				.orElse(null);
+	}
+
+	private Optional<?> getMessageMedia() {
+		return Stream.of(message.photo(), message.document(), message.sticker(),
+						message.video(), message.videoNote(),
+						message.audio(), message.voice())
+				.filter(Objects::nonNull)
+				.findFirst();
+	}
+
+	private TelegramFile getBestPhoto(PhotoSize[] photos) {
+		return Arrays.stream(photos)
+				.map(photo -> new TelegramFile(photo.fileId(), photo.fileSize()))
+				.filter(TelegramFile::canBeDownloaded)
+				.max(comparing(TelegramFile::size))
+				.orElse(TelegramFile.TOO_LARGE);
 	}
 
 	public Long getChatId() {
@@ -74,7 +82,9 @@ public record TelegramRequest(Message message) {
 	}
 
 	private String getUsername() {
-		return Optional.ofNullable(message.from().username()).orElse("<anonymous>");
+		return Optional.ofNullable(message.from().username())
+				.map(username -> "@" + username)
+				.orElse("id:" + message.from().id());
 	}
 
 	public Answer getAnswerMessage() {

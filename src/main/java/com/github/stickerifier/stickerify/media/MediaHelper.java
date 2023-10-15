@@ -211,7 +211,11 @@ public final class MediaHelper {
 			return null;
 		}
 
-		return createPngFile(resizeImage(image));
+		try {
+			return createPngFile(resizeImage(image));
+		} finally {
+			image.flush();
+		}
 	}
 
 	/**
@@ -262,6 +266,8 @@ public final class MediaHelper {
 			ImageIO.write(image, "png", pngImage);
 		} catch (IOException e) {
 			throw new TelegramApiException("An unexpected error occurred trying to create resulting image", e);
+		} finally {
+			image.flush();
 		}
 
 		return pngImage;
