@@ -9,7 +9,7 @@ imageio-bmp = { module = "com.twelvemonkeys.imageio:imageio-bmp", version.ref = 
 imageio-jpeg = { module = "com.twelvemonkeys.imageio:imageio-jpeg", version.ref = "twelvemonkeys" }
 imageio-psd = { module = "com.twelvemonkeys.imageio:imageio-psd", version.ref = "twelvemonkeys" }
 imageio-webp = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "twelvemonkeys" }
-imgscalr = "org.imgscalr:imgscalr-lib:4.2"
+imgscalr = "org.imgscalr:imgscalr-lib:4.3-SNAPSHOT"
 jave = "ws.schild:jave-core:3.4.0"
 junit = "org.junit.jupiter:junit-jupiter:5.10.1"
 junit-platform = "org.junit.platform:junit-platform-launcher:1.10.1"
@@ -22,5 +22,5 @@ telegram-bot-api = "com.github.pengrad:java-telegram-bot-api:7.0.1"
 tika = "org.apache.tika:tika-core:2.9.1"
 
 [plugins]
-runtime = "org.beryx.runtime:1.13.0"
+jlink = "org.beryx.jlink:3.0.1"
 shadow = "com.github.johnrengelman.shadow:8.1.1"

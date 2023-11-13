@@ -1,10 +1,12 @@
 plugins {
-    alias(libs.plugins.runtime)
+    alias(libs.plugins.jlink)
     alias(libs.plugins.shadow)
+    id 'application'
     id 'java'
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -54,11 +56,11 @@ test {
 
 application {
     mainClass = 'com.github.stickerifier.stickerify.runner.Main'
+    mainModule = 'com.github.stickerifier.stickerify'
 }
 
-runtime {
-    options = ['--strip-debug', '--no-header-files', '--no-man-pages', '--compress=2']
-    modules = ['java.desktop', 'java.naming', 'java.sql', 'jdk.crypto.ec']
+jlink {
+    addOptions('--strip-debug', '--no-header-files', '--no-man-pages', '--compress=2')
 }
 
 shadowJar {
