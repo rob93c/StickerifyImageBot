@@ -47,8 +47,7 @@ jacocoTestReport {
 
     afterEvaluate {
         classDirectories = files(classDirectories.files.collect {
-            fileTree(dir: it, exclude: ['**/ThreadIdConverter.class',
-                                        '**/MediaConstraints.class',
+            fileTree(dir: it, exclude: ['**/MediaConstraints.class',
                                         '**/stickerify/process/**',
                                         '**/stickerify/runner**',
                                         '**/stickerify/telegram/**'])
@@ -60,27 +59,23 @@ group = 'com.github.stickerifier'
 version = '1.0'
 description = 'Telegram bot to convert medias in the format required to be used as Telegram stickers'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(22)
-    }
-}
+java.toolchain.languageVersion = JavaLanguageVersion.of(22)
 
 tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.add('--enable-preview')
     options.encoding = 'UTF-8'
 }
 
 test {
+    jvmArgs('--enable-preview')
     useJUnitPlatform()
     finalizedBy(jacocoTestReport)
 }
 
-application {
-    mainClass = 'com.github.stickerifier.stickerify.runner.Main'
-}
+application.mainClass = 'Main'
 
 runtime {
-    options = ['--strip-debug', '--no-header-files', '--no-man-pages', '--compress=2']
+    options = ['--strip-debug', '--no-header-files', '--no-man-pages']
     modules = ['java.desktop', 'java.naming', 'java.sql', 'jdk.crypto.ec']
 }
 

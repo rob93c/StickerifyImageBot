@@ -1,15 +1,15 @@
 package com.github.stickerifier.stickerify.process;
 
+import org.jetbrains.annotations.NotNull;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
-
-import com.github.stickerifier.stickerify.telegram.exception.TelegramApiException;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.Semaphore;
 
-public final class ProcessHelper {
+public final class ProcessRunner {
 
 	static final boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase().contains("windows");
 	private static final int MAX_CONCURRENT_PROCESSES = IS_WINDOWS ? 4 : 5;
@@ -22,14 +22,15 @@ public final class ProcessHelper {
 	 *
 	 * @param command the command to be executed
 	 * @return the output of the command
-	 * @throws TelegramApiException either if:
+	 * @throws ProcessException either if:
 	 * <ul>
 	 *     <li>the command was unsuccessful
 	 *     <li>the waiting time elapsed
 	 *     <li>an unexpected failure happened running the command
 	 * </ul>
 	 */
-	public static String executeCommand(final String[] command) throws TelegramApiException {
+	@NotNull
+	public static String executeCommand(final String[] command) throws ProcessException {
 		Process process = null;
 
 		try {
@@ -40,12 +41,15 @@ public final class ProcessHelper {
 			if (!processExited || process.exitValue() != 0) {
 				var reason = processExited ? "successfully" : "in time";
 				var output = readStream(process.getErrorStream());
-				throw new TelegramApiException("The command {} couldn't complete {}: {}", command[0], reason, output);
+				throw new ProcessException(STR."The command \{command[0]} couldn't complete \{reason}: \{output}");
 			}
 
 			return readProcessOutput(process);
-		} catch (IOException | InterruptedException e) {
-			throw new TelegramApiException(e);
+		} catch (IOException e) {
+			throw new ProcessException(e);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new ProcessException(e);
 		} finally {
 			SEMAPHORE.release();
 			if (process != null) {
@@ -80,7 +84,7 @@ public final class ProcessHelper {
 		return output.trim();
 	}
 
-	private ProcessHelper() {
+	private ProcessRunner() {
 		throw new UnsupportedOperationException();
 	}
 }

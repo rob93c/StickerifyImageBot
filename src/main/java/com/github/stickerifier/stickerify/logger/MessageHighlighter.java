@@ -23,7 +23,7 @@ public class MessageHighlighter extends MessageConverter {
 
 	private static final String START_YELLOW = changeColorTo(BOLD + YELLOW_FG);
 	static final String CONTINUE_WHITE = changeColorTo(RESET + DEFAULT_FG);
-	static final String HIGHLIGHTED_NEW_USER = " " + START_YELLOW + NEW_USER.substring(1) + CONTINUE_WHITE;
+	static final String HIGHLIGHTED_NEW_USER = STR." \{START_YELLOW}\{NEW_USER.substring(1)}\{CONTINUE_WHITE}";
 
 	@Override
 	public String convert(ILoggingEvent event) {

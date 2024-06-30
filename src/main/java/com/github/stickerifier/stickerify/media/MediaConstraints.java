@@ -17,7 +17,7 @@ public final class MediaConstraints {
 	static final long MAX_IMAGE_FILE_SIZE = 512_000L;
 	static final long MAX_VIDEO_FILE_SIZE = 256_000L;
 	static final long MAX_ANIMATION_FILE_SIZE = 64_000L;
-	static final int MAX_ANIMATION_FRAMERATE = 60;
+	static final int MAX_ANIMATION_FRAME_RATE = 60;
 	static final float MAX_ANIMATION_DURATION_SECONDS = 3F;
 
 	private MediaConstraints() {

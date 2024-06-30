@@ -1,5 +1,7 @@
 package com.github.stickerifier.stickerify.junit;
 
+import com.github.stickerifier.stickerify.media.MediaConverter;
+import com.github.stickerifier.stickerify.request.RequestHandler;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.Logger;
@@ -33,7 +35,7 @@ public class TempFilesCleanupExtension implements AfterAllCallback {
 	private boolean stickerifyFiles(Path path) {
 		var fileName = path.getFileName().toString();
 
-		return Files.isRegularFile(path) && (fileName.startsWith("Stickerify-") || fileName.startsWith("OriginalFile-"));
+		return Files.isRegularFile(path) && (fileName.startsWith(MediaConverter.TMP_FILE_PREFIX) || fileName.startsWith(RequestHandler.TMP_FILE_PREFIX));
 	}
 
 	private void deleteFile(Path path) {

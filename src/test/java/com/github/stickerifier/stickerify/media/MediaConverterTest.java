@@ -5,7 +5,7 @@ import static com.github.stickerifier.stickerify.media.MediaConstraints.MATROSKA
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_IMAGE_FILE_SIZE;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_VIDEO_FILE_SIZE;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.VP9_CODEC;
-import static com.github.stickerifier.stickerify.media.MediaHelper.FFMPEG_LOCATOR;
+import static com.github.stickerifier.stickerify.media.MediaConverter.FFMPEG_LOCATOR;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -34,12 +34,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 @ClearTempFiles
-class MediaHelperTest {
+class MediaConverterTest {
 
 	@Test
 	void resizeImage() throws Exception {
 		var jpgImage = loadResource("big.jpg");
-		var result = MediaHelper.convert(jpgImage);
+		var result = MediaConverter.convert(jpgImage);
 
 		assertImageConsistency(result, 512, 341);
 	}
@@ -63,7 +63,7 @@ class MediaHelperTest {
 	@Test
 	void resizeRectangularImage() throws Exception {
 		var jpgImage = loadResource("big.jpg");
-		var result = MediaHelper.convert(jpgImage);
+		var result = MediaConverter.convert(jpgImage);
 
 		assertImageConsistency(result, 512, 341);
 	}
@@ -71,7 +71,7 @@ class MediaHelperTest {
 	@Test
 	void resizeSmallImage() throws Exception {
 		var pngImage = loadResource("small_image.png");
-		var result = MediaHelper.convert(pngImage);
+		var result = MediaConverter.convert(pngImage);
 
 		assertImageConsistency(result, 512, 512);
 	}
@@ -79,7 +79,7 @@ class MediaHelperTest {
 	@Test
 	void noImageConversionNeeded() throws Exception {
 		var pngImage = loadResource("valid.png");
-		var result = MediaHelper.convert(pngImage);
+		var result = MediaConverter.convert(pngImage);
 
 		assertThat(result, is(nullValue()));
 	}
@@ -87,7 +87,7 @@ class MediaHelperTest {
 	@Test
 	void resizeWebpImage() throws Exception {
 		var webpImage = loadResource("valid.webp");
-		var result = MediaHelper.convert(webpImage);
+		var result = MediaConverter.convert(webpImage);
 
 		assertImageConsistency(result, 256, 512);
 	}
@@ -95,7 +95,7 @@ class MediaHelperTest {
 	@Test
 	void resizeFaviconImage() throws Exception {
 		var faviconImage = loadResource("favicon.ico");
-		var result = MediaHelper.convert(faviconImage);
+		var result = MediaConverter.convert(faviconImage);
 
 		assertImageConsistency(result, 512, 512);
 	}
@@ -103,7 +103,7 @@ class MediaHelperTest {
 	@Test
 	void resizeTiffImage() throws Exception {
 		var tiffImage = loadResource("valid.tiff");
-		var result = MediaHelper.convert(tiffImage);
+		var result = MediaConverter.convert(tiffImage);
 
 		assertImageConsistency(result, 512, 342);
 	}
@@ -111,7 +111,7 @@ class MediaHelperTest {
 	@Test
 	void resizePsdImage() throws Exception {
 		var psdImage = loadResource("valid.psd");
-		var result = MediaHelper.convert(psdImage);
+		var result = MediaConverter.convert(psdImage);
 
 		assertImageConsistency(result, 512, 384);
 	}
@@ -119,7 +119,7 @@ class MediaHelperTest {
 	@Test
 	void resizeDetailedImage() throws Exception {
 		var detailedImage = loadResource("detailed.jpg");
-		var result = MediaHelper.convert(detailedImage);
+		var result = MediaConverter.convert(detailedImage);
 
 		assertImageConsistency(result, 512, 512);
 	}
@@ -127,7 +127,7 @@ class MediaHelperTest {
 	@Test
 	void resizeSvgImage() throws Exception {
 		var svgImage = loadResource("valid.svg");
-		var result = MediaHelper.convert(svgImage);
+		var result = MediaConverter.convert(svgImage);
 
 		assertImageConsistency(result, 512, 512);
 	}
@@ -135,7 +135,7 @@ class MediaHelperTest {
 	@Test
 	void convertLongMovVideo() throws Exception {
 		var movVideo = loadResource("long.mov");
-		var result = MediaHelper.convert(movVideo);
+		var result = MediaConverter.convert(movVideo);
 
 		assertVideoConsistency(result, 512, 288, 29.97F, 3_000L);
 	}
@@ -163,7 +163,7 @@ class MediaHelperTest {
 	@Test
 	void convertMp4WithAudio() throws Exception {
 		var mp4Video = loadResource("video_with_audio.mp4");
-		var result = MediaHelper.convert(mp4Video);
+		var result = MediaConverter.convert(mp4Video);
 
 		assertVideoConsistency(result, 512, 288, 29.97F, 3_000L);
 	}
@@ -171,7 +171,7 @@ class MediaHelperTest {
 	@Test
 	void convertM4vWithAudio() throws Exception {
 		var m4vVideo = loadResource("video_with_audio.m4v");
-		var result = MediaHelper.convert(m4vVideo);
+		var result = MediaConverter.convert(m4vVideo);
 
 		assertVideoConsistency(result, 512, 214, 23.98F, 3_000L);
 	}
@@ -179,7 +179,7 @@ class MediaHelperTest {
 	@Test
 	void convertShortAndLowFpsVideo() throws Exception {
 		var webmVideo = loadResource("short_low_fps.webm");
-		var result = MediaHelper.convert(webmVideo);
+		var result = MediaConverter.convert(webmVideo);
 
 		assertVideoConsistency(result, 512, 288, 10F, 1_000L);
 	}
@@ -187,7 +187,7 @@ class MediaHelperTest {
 	@Test
 	void resizeSmallWebmVideo() throws Exception {
 		var webmVideo = loadResource("small_video_sticker.webm");
-		var result = MediaHelper.convert(webmVideo);
+		var result = MediaConverter.convert(webmVideo);
 
 		assertVideoConsistency(result, 512, 212, 30F, 2_000L);
 	}
@@ -195,7 +195,7 @@ class MediaHelperTest {
 	@Test
 	void convertVerticalWebmVideo() throws Exception {
 		var webmVideo = loadResource("vertical_video_sticker.webm");
-		var result = MediaHelper.convert(webmVideo);
+		var result = MediaConverter.convert(webmVideo);
 
 		assertVideoConsistency(result, 288, 512, 30F, 2_000L);
 	}
@@ -203,7 +203,7 @@ class MediaHelperTest {
 	@Test
 	void convertGifVideo() throws Exception {
 		var gifVideo = loadResource("valid.gif");
-		var result = MediaHelper.convert(gifVideo);
+		var result = MediaConverter.convert(gifVideo);
 
 		assertVideoConsistency(result, 512, 274, 10F, 1_000L);
 	}
@@ -211,7 +211,7 @@ class MediaHelperTest {
 	@Test
 	void noVideoConversionNeeded() throws Exception {
 		var webmVideo = loadResource("no_conversion_needed.webm");
-		var result = MediaHelper.convert(webmVideo);
+		var result = MediaConverter.convert(webmVideo);
 
 		assertThat(result, is(nullValue()));
 	}
@@ -219,7 +219,7 @@ class MediaHelperTest {
 	@Test
 	void noAnimatedStickerConversionNeeded() throws Exception {
 		var animatedSticker = loadResource("animated_sticker.tgs");
-		var result = MediaHelper.convert(animatedSticker);
+		var result = MediaConverter.convert(animatedSticker);
 
 		assertThat(result, is(nullValue()));
 	}
@@ -227,7 +227,7 @@ class MediaHelperTest {
 	@Test
 	void noLowFpsAnimatedStickerConversionNeeded() throws Exception {
 		var animatedSticker = loadResource("low_fps_animated_sticker.tgs");
-		var result = MediaHelper.convert(animatedSticker);
+		var result = MediaConverter.convert(animatedSticker);
 
 		assertThat(result, is(nullValue()));
 	}
@@ -236,14 +236,14 @@ class MediaHelperTest {
 	void unsupportedGzipArchive() {
 		var archive = loadResource("unsupported_archive.gz");
 
-		assertThrows(TelegramApiException.class, () -> MediaHelper.convert(archive));
+		assertThrows(TelegramApiException.class, () -> MediaConverter.convert(archive));
 	}
 
 	@Test
 	void unsupportedFile() {
 		var document = loadResource("document.txt");
 
-		assertThrows(TelegramApiException.class, () -> MediaHelper.convert(document));
+		assertThrows(TelegramApiException.class, () -> MediaConverter.convert(document));
 	}
 
 	@Nested
@@ -267,7 +267,7 @@ class MediaHelperTest {
 			try (var executor = newFixedThreadPool(5, Thread.ofVirtual().factory())) {
 				IntStream.range(0, concurrentRequests).forEach(_ -> executor.execute(() -> {
 					try {
-						MediaHelper.convert(inputFile);
+						MediaConverter.convert(inputFile);
 					} catch (Throwable e) {
 						failedConversions.incrementAndGet();
 						failureReasons.add(e.getMessage());

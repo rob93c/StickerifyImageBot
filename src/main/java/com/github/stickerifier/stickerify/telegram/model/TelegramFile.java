@@ -9,4 +9,9 @@ public record TelegramFile(String id, Long size) {
 	public boolean canBeDownloaded() {
 		return size == null || size <= MAX_DOWNLOADABLE_FILE_SIZE_IN_BYTES;
 	}
+
+	@Override
+	public String toString() {
+		return id;
+	}
 }

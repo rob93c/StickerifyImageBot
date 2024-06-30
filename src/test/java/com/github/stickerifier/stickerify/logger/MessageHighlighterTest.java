@@ -16,7 +16,7 @@ class MessageHighlighterTest {
 
 	private static final String LOG_MESSAGE = "Received request";
 	private static final String MIME_TYPE = "image/vnd.microsoft.icon";
-	private static final String LOG_MESSAGE_WITH_MIME_TYPE = LOG_MESSAGE + " with " + MIME_TYPE + " MIME type";
+	private static final String LOG_MESSAGE_WITH_MIME_TYPE = STR."\{LOG_MESSAGE} with \{MIME_TYPE} MIME type";
 
 	private MessageHighlighter messageHighlighter;
 
@@ -63,17 +63,17 @@ class MessageHighlighterTest {
 
 		var convertedMessage = messageHighlighter.convert(event);
 
-		assertThat(convertedMessage, is(equalTo(LOG_MESSAGE + " with " + highlightedMimeType + " MIME type")));
+		assertThat(convertedMessage, is(equalTo(STR."\{LOG_MESSAGE} with \{highlightedMimeType} MIME type")));
 	}
 
 	@Test
 	@DisplayName("Log message with multiple MIME types")
 	void processEventWithMultipleMimeTypes() {
-		var event = new LoggingEvent(LOG_MESSAGE_WITH_MIME_TYPE + " and " + MIME_TYPE);
+		var event = new LoggingEvent(STR."\{LOG_MESSAGE_WITH_MIME_TYPE} and \{MIME_TYPE}");
 		var highlightedMimeType = START_GREEN + MIME_TYPE + CONTINUE_WHITE;
 
 		var convertedMessage = messageHighlighter.convert(event);
 
-		assertThat(convertedMessage, is(equalTo(LOG_MESSAGE + " with " + highlightedMimeType + " MIME type and " + MIME_TYPE)));
+		assertThat(convertedMessage, is(equalTo(STR."\{LOG_MESSAGE} with \{highlightedMimeType} MIME type and \{MIME_TYPE}")));
 	}
 }

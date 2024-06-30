@@ -1,4 +1,4 @@
-# <img src="src/main/resources/images/stickerify.svg" alt="Stickerify Logo" align="right" width="100">[Stickerify](https://t.me/StickerifyImageBot)
+# <img src="assets/stickerify.svg" alt="Stickerify Logo" align="right" width="100">[Stickerify](https://t.me/StickerifyImageBot)
 
 Telegram bot to convert medias in the format required to be used as Telegram stickers
 

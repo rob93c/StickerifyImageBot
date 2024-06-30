@@ -1,39 +1,17 @@
 package com.github.stickerifier.stickerify.bot;
 
-import static com.github.stickerifier.stickerify.telegram.Answer.CORRUPTED;
-import static com.github.stickerifier.stickerify.telegram.Answer.ERROR;
-import static com.github.stickerifier.stickerify.telegram.Answer.FILE_ALREADY_VALID;
-import static com.github.stickerifier.stickerify.telegram.Answer.FILE_READY;
-import static com.github.stickerifier.stickerify.telegram.Answer.FILE_TOO_LARGE;
-import static com.pengrad.telegrambot.model.request.ParseMode.MarkdownV2;
-import static java.util.HashSet.newHashSet;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-
-import com.github.stickerifier.stickerify.media.MediaHelper;
-import com.github.stickerifier.stickerify.telegram.Answer;
-import com.github.stickerifier.stickerify.telegram.exception.TelegramApiException;
-import com.github.stickerifier.stickerify.telegram.model.TelegramFile;
+import com.github.stickerifier.stickerify.request.RequestHandler;
 import com.github.stickerifier.stickerify.telegram.model.TelegramRequest;
 import com.pengrad.telegrambot.ExceptionHandler;
 import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.TelegramException;
 import com.pengrad.telegrambot.UpdatesListener;
 import com.pengrad.telegrambot.model.Update;
-import com.pengrad.telegrambot.request.BaseRequest;
-import com.pengrad.telegrambot.request.GetFile;
-import com.pengrad.telegrambot.request.GetUpdates;
-import com.pengrad.telegrambot.request.SendDocument;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.response.BaseResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Executor;
+import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.ThreadFactory;
 
 /**
@@ -41,14 +19,12 @@ import java.util.concurrent.ThreadFactory;
  *
  * @author Roberto Cella
  */
-public class Stickerify {
+public class Stickerify implements AutoCloseable, ExceptionHandler, UpdatesListener {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Stickerify.class);
-	private static final String BOT_TOKEN = System.getenv("STICKERIFY_TOKEN");
 	private static final ThreadFactory VIRTUAL_THREAD_FACTORY = Thread.ofVirtual().name("Virtual-", 0).factory();
 
 	private final TelegramBot bot;
-	private final Executor executor;
 
 	/**
 	 * Instantiate the bot processing requests with virtual threads.
@@ -56,151 +32,49 @@ public class Stickerify {
 	 * @see Stickerify
 	 */
 	public Stickerify() {
-		this(new TelegramBot.Builder(BOT_TOKEN).updateListenerSleep(500).build(), newFixedThreadPool(getMaxConcurrentThreads(), VIRTUAL_THREAD_FACTORY));
+		var token = System.getenv("STICKERIFY_TOKEN");
+		this(new TelegramBot(token));
+	}
+
+	Stickerify(TelegramBot bot) {
+		this.bot = bot;
 	}
 
 	/**
-	 * Instantiate the bot processing requests with an arbitrary executor.
-	 *
-	 * @see Stickerify
+	 * Starts listening for new Updates
 	 */
-	Stickerify(TelegramBot bot, Executor executor) {
-		this.bot = bot;
-		this.executor = executor;
-
-		ExceptionHandler exceptionHandler = e -> LOGGER.atError().log("There was an unexpected failure: {}", e.getMessage());
-
-		bot.setUpdatesListener(this::handleUpdates, exceptionHandler, new GetUpdates().timeout(50));
+	public void start() {
+		bot.setUpdatesListener(this, this);
 	}
 
-	private int handleUpdates(List<Update> updates) {
-		updates.forEach(update -> executor.execute(() -> {
-			if (update.message() != null) {
-				var request = new TelegramRequest(update.message());
-				LOGGER.atInfo().log("Received {}", request.getDescription());
+	@Override
+	public void close() {
+		bot.removeGetUpdatesListener();
+		bot.shutdown();
+	}
 
-				answer(request);
+	@Override
+	public void onException(TelegramException e) {
+		LOGGER.atError().log("There was an unexpected failure: {}", e.getMessage());
+	}
+
+	@Override
+	public int process(List<Update> updates) {
+		try (var scope = new StructuredTaskScope<>(null, VIRTUAL_THREAD_FACTORY)) {
+			for (Update update : updates) {
+				if (update.message() != null) {
+					var request = new TelegramRequest(update.message());
+					LOGGER.atInfo().log("Received {}", request.getDescription());
+					scope.fork(RequestHandler.from(request, bot));
+				}
 			}
-		}));
+
+			scope.join();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException(e);
+		}
 
 		return UpdatesListener.CONFIRMED_UPDATES_ALL;
-	}
-
-	private void answer(TelegramRequest request) {
-		var file = request.getFile();
-
-		if (file != null) {
-			answerFile(request, file);
-		} else {
-			answerText(request);
-		}
-	}
-
-	private void answerFile(TelegramRequest request, TelegramFile file) {
-		if (file == TelegramFile.NOT_SUPPORTED) {
-			answerText(ERROR, request);
-		} else if (file.canBeDownloaded()) {
-			answerFile(request, file.id());
-		} else {
-			LOGGER.atInfo().log("Passed-in file is too large");
-
-			answerText(FILE_TOO_LARGE, request);
-		}
-	}
-
-	private void answerFile(TelegramRequest request, String fileId) {
-		Set<Path> pathsToDelete = newHashSet(2);
-
-		try {
-			var originalFile = retrieveFile(fileId);
-			pathsToDelete.add(originalFile.toPath());
-
-			var outputFile = MediaHelper.convert(originalFile);
-
-			if (outputFile == null) {
-				answerText(FILE_ALREADY_VALID, request);
-			} else {
-				pathsToDelete.add(outputFile.toPath());
-
-				var answerWithFile = new SendDocument(request.getChatId(), outputFile)
-						.replyToMessageId(request.getMessageId())
-						.caption(FILE_READY.getText())
-						.parseMode(MarkdownV2);
-
-				execute(answerWithFile);
-			}
-		} catch (TelegramApiException e) {
-			processFailure(request, e);
-		} finally {
-			deleteTempFiles(pathsToDelete);
-		}
-	}
-
-	private File retrieveFile(String fileId) throws TelegramApiException {
-		var file = execute(new GetFile(fileId)).file();
-
-		try {
-			var fileContent = bot.getFileContent(file);
-			var downloadedFile = File.createTempFile("OriginalFile-", null);
-			Files.write(downloadedFile.toPath(), fileContent);
-
-			return downloadedFile;
-		} catch (IOException e) {
-			throw new TelegramApiException(e);
-		}
-	}
-
-	private void processFailure(TelegramRequest request, TelegramApiException e) {
-		if (e.getMessage().endsWith("Bad Request: message to reply not found")) {
-			LOGGER.atInfo().log("Unable to reply to the {}: the message sent has been deleted", request.getDescription());
-		} else if ("The video could not be processed successfully".equals(e.getMessage())) {
-			LOGGER.atInfo().log("Unable to reply to the {}: the file is corrupted", request.getDescription());
-			answerText(CORRUPTED, request);
-		} else {
-			LOGGER.atWarn().setCause(e).log("Unable to process the file {}", request.getFile().id());
-			answerText(ERROR, request);
-		}
-	}
-
-	private void answerText(TelegramRequest request) {
-		answerText(request.getAnswerMessage(), request);
-	}
-
-	private void answerText(Answer answer, TelegramRequest request) {
-		var answerWithText = new SendMessage(request.getChatId(), answer.getText())
-				.replyToMessageId(request.getMessageId())
-				.parseMode(MarkdownV2)
-				.disableWebPagePreview(answer.isDisableWebPreview());
-
-		try {
-			execute(answerWithText);
-		} catch (TelegramApiException e) {
-			LOGGER.atError().setCause(e).log("Unable to reply to the {}", request);
-		}
-	}
-
-	private <T extends BaseRequest<T, R>, R extends BaseResponse> R execute(BaseRequest<T, R> request) throws TelegramApiException {
-		var response = bot.execute(request);
-
-		if (response.isOk()) {
-			return response;
-		}
-
-		throw new TelegramApiException("Telegram couldn't execute the {} request: {}", request.getMethod(), response.description());
-	}
-
-	private static void deleteTempFiles(Set<Path> pathsToDelete) {
-		for (var path : pathsToDelete) {
-			try {
-				Files.deleteIfExists(path);
-			} catch (IOException e) {
-				LOGGER.atError().setCause(e).log("An error occurred trying to delete temp file {}", path);
-			}
-		}
-	}
-
-	private static int getMaxConcurrentThreads() {
-		var value = System.getenv("CONCURRENT_THREADS");
-		return value == null ? 5 : Integer.parseInt(value);
 	}
 }

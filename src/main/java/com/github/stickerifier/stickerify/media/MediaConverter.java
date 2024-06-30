@@ -3,7 +3,7 @@ package com.github.stickerifier.stickerify.media;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MATROSKA_FORMAT;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_ANIMATION_DURATION_SECONDS;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_ANIMATION_FILE_SIZE;
-import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_ANIMATION_FRAMERATE;
+import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_ANIMATION_FRAME_RATE;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_IMAGE_FILE_SIZE;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_SIZE;
 import static com.github.stickerifier.stickerify.media.MediaConstraints.MAX_VIDEO_DURATION_MILLIS;
@@ -13,7 +13,8 @@ import static com.github.stickerifier.stickerify.media.MediaConstraints.VP9_CODE
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.stickerifier.stickerify.process.PathLocator;
-import com.github.stickerifier.stickerify.process.ProcessHelper;
+import com.github.stickerifier.stickerify.process.ProcessRunner;
+import com.github.stickerifier.stickerify.process.ProcessException;
 import com.github.stickerifier.stickerify.telegram.exception.MediaOptimizationException;
 import com.github.stickerifier.stickerify.telegram.exception.TelegramApiException;
 import com.google.gson.Gson;
@@ -24,6 +25,7 @@ import com.googlecode.pngtastic.core.PngOptimizer;
 import org.apache.tika.Tika;
 import org.imgscalr.Scalr;
 import org.imgscalr.Scalr.Mode;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ws.schild.jave.EncoderException;
@@ -40,20 +42,21 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-public final class MediaHelper {
+public final class MediaConverter {
 
 	static {
 		System.setProperty("java.awt.headless", "true");
 		ImageIO.setUseCache(false);
 	}
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(MediaHelper.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(MediaConverter.class);
 
 	private static final Gson GSON = new Gson();
 	static final ProcessLocator FFMPEG_LOCATOR = new PathLocator();
 	private static final int PRESERVE_ASPECT_RATIO = -2;
 	private static final List<String> SUPPORTED_VIDEOS = List.of("image/gif", "video/quicktime", "video/webm",
 			"video/mp4", "video/x-m4v", "application/x-matroska");
+	public static final String TMP_FILE_PREFIX = "Stickerify-";
 
 	/**
 	 * Based on the type of passed-in file, it converts it into the proper media.
@@ -63,6 +66,7 @@ public final class MediaHelper {
 	 * @return a resized and converted file
 	 * @throws TelegramApiException if the file is not supported or if the conversion failed
 	 */
+	@Nullable
 	public static File convert(File inputFile) throws TelegramApiException {
 		var mimeType = detectMimeType(inputFile);
 
@@ -156,7 +160,7 @@ public final class MediaHelper {
 	 */
 	private static boolean isAnimationCompliant(AnimationDetails animation) {
 		return animation != null
-				&& animation.frameRate() <= MAX_ANIMATION_FRAMERATE
+				&& animation.frameRate() <= MAX_ANIMATION_FRAME_RATE
 				&& animation.duration() <= MAX_ANIMATION_DURATION_SECONDS
 				&& animation.width() == MAX_SIZE && animation.height() == MAX_SIZE;
 	}
@@ -312,7 +316,7 @@ public final class MediaHelper {
 	 */
 	private static File createTempFile(String fileType) throws TelegramApiException {
 		try {
-			return File.createTempFile("Stickerify-", "." + fileType);
+			return File.createTempFile(TMP_FILE_PREFIX, STR.".\{fileType}");
 		} catch (IOException e) {
 			throw new TelegramApiException("An error occurred creating a new temp file", e);
 		}
@@ -392,8 +396,8 @@ public final class MediaHelper {
 				"ffmpeg",
 				"-v", "error",
 				"-i", file.getAbsolutePath(),
-				"-vf", "scale = " + videoDetails.width() + ":" + videoDetails.height() + ", fps = " + videoDetails.frameRate(),
-				"-c:v", "libvpx-" + VP9_CODEC,
+				"-vf", STR."scale = \{videoDetails.width()}:\{videoDetails.height()}, fps = \{videoDetails.frameRate()}",
+				"-c:v", STR."libvpx-\{VP9_CODEC}",
 				"-b:v", "256k",
 				"-crf", "32",
 				"-g", "60",
@@ -402,7 +406,11 @@ public final class MediaHelper {
 				"-y", webmVideo.getAbsolutePath()
 		};
 
-		ProcessHelper.executeCommand(ffmpegCommand);
+		try {
+			ProcessRunner.executeCommand(ffmpegCommand);
+		} catch (ProcessException e) {
+			throw new TelegramApiException(e);
+		}
 
 		return webmVideo;
 	}
@@ -428,7 +436,7 @@ public final class MediaHelper {
 
 	private record ResultingVideoDetails(int width, int height, float frameRate, String duration) {}
 
-	private MediaHelper() {
+	private MediaConverter() {
 		throw new UnsupportedOperationException();
 	}
 }

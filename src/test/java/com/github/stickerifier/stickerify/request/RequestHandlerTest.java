@@ -1,4 +1,18 @@
-package com.github.stickerifier.stickerify.bot;
+package com.github.stickerifier.stickerify.request;
+
+import com.github.stickerifier.stickerify.junit.ClearTempFiles;
+import com.github.stickerifier.stickerify.telegram.Answer;
+import com.github.stickerifier.stickerify.telegram.model.TelegramRequest;
+import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.model.Message;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.net.URLEncoder;
 
 import static com.github.stickerifier.stickerify.ResourceHelper.loadResource;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -6,51 +20,42 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.github.stickerifier.stickerify.junit.ClearTempFiles;
-import com.github.stickerifier.stickerify.telegram.Answer;
-import com.pengrad.telegrambot.TelegramBot;
-import mockwebserver3.MockWebServer;
-import mockwebserver3.RecordedRequest;
-import mockwebserver3.junit5.internal.MockWebServerExtension;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-import java.net.URLEncoder;
-
 @ClearTempFiles
-@ExtendWith(MockWebServerExtension.class)
-class StickerifyTest {
+class RequestHandlerTest {
 
 	private MockWebServer server;
+	private TelegramBot bot;
 
 	@BeforeEach
 	void setup() {
-		server = new MockWebServer();
+		this.server = new MockWebServer();
+		this.bot = new TelegramBot.Builder("token")
+				.apiUrl(server.url("api/").toString())
+				.fileApiUrl(server.url("files/").toString())
+				.build();
+	}
+
+	@AfterEach
+	void cleanup() throws IOException {
+		bot.shutdown();
+		server.close();
 	}
 
 	@Test
 	void startMessage() throws Exception {
-		server.enqueue(MockResponses.START_MESSAGE);
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.START_MESSAGE);
 
 		var sendMessage = server.takeRequest();
 		assertEquals("/api/token/sendMessage", sendMessage.getPath());
 		assertResponseContainsMessage(sendMessage, Answer.HELP);
 	}
 
-	private void startBot() {
-		var bot = new TelegramBot.Builder("token")
-				.apiUrl(server.url("api/").toString())
-				.fileApiUrl(server.url("files/").toString())
-				.updateListenerSleep(500)
-				.build();
-
-		new Stickerify(bot, Runnable::run);
+	private void makeRequest(Message message) throws Exception {
+		var request = new TelegramRequest(message);
+		var callable = RequestHandler.from(request, bot);
+		callable.call();
 	}
 
 	private static void assertResponseContainsMessage(RecordedRequest request, Answer answer) {
@@ -60,12 +65,9 @@ class StickerifyTest {
 
 	@Test
 	void helpMessage() throws Exception {
-		server.enqueue(MockResponses.HELP_MESSAGE);
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.HELP_MESSAGE);
 
 		var sendMessage = server.takeRequest();
 		assertEquals("/api/token/sendMessage", sendMessage.getPath());
@@ -74,12 +76,9 @@ class StickerifyTest {
 
 	@Test
 	void privacyMessage() throws Exception {
-		server.enqueue(MockResponses.PRIVACY_MESSAGE);
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.PRIVACY_MESSAGE);
 
 		var sendMessage = server.takeRequest();
 		assertEquals("/api/token/sendMessage", sendMessage.getPath());
@@ -88,12 +87,9 @@ class StickerifyTest {
 
 	@Test
 	void fileNotSupported() throws Exception {
-		server.enqueue(MockResponses.FILE_NOT_SUPPORTED);
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.FILE_NOT_SUPPORTED);
 
 		var sendMessage = server.takeRequest();
 		assertEquals("/api/token/sendMessage", sendMessage.getPath());
@@ -102,12 +98,9 @@ class StickerifyTest {
 
 	@Test
 	void fileTooBig() throws Exception {
-		server.enqueue(MockResponses.FILE_TOO_BIG);
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.FILE_TOO_LARGE);
 
 		var sendMessage = server.takeRequest();
 		assertEquals("/api/token/sendMessage", sendMessage.getPath());
@@ -116,14 +109,11 @@ class StickerifyTest {
 
 	@Test
 	void fileAlreadyValid() throws Exception {
-		server.enqueue(MockResponses.ANIMATED_STICKER);
 		server.enqueue(MockResponses.fileInfo("animated_sticker.tgs"));
 		server.enqueue(MockResponses.fileDownload(loadResource("animated_sticker.tgs")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.ANIMATED_STICKER);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
@@ -139,14 +129,11 @@ class StickerifyTest {
 
 	@Test
 	void convertedPng() throws Exception {
-		server.enqueue(MockResponses.PNG_FILE);
 		server.enqueue(MockResponses.fileInfo("big.png"));
 		server.enqueue(MockResponses.fileDownload(loadResource("big.png")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.PNG_FILE);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
@@ -162,14 +149,11 @@ class StickerifyTest {
 
 	@Test
 	void convertedWebp() throws Exception {
-		server.enqueue(MockResponses.WEBP_FILE);
 		server.enqueue(MockResponses.fileInfo("valid.webp"));
 		server.enqueue(MockResponses.fileDownload(loadResource("valid.webp")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.WEBP_FILE);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
@@ -185,14 +169,11 @@ class StickerifyTest {
 
 	@Test
 	void convertedMov() throws Exception {
-		server.enqueue(MockResponses.MOV_FILE);
 		server.enqueue(MockResponses.fileInfo("long.mov"));
 		server.enqueue(MockResponses.fileDownload(loadResource("long.mov")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.MOV_FILE);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
@@ -208,14 +189,11 @@ class StickerifyTest {
 
 	@Test
 	void convertedWebm() throws Exception {
-		server.enqueue(MockResponses.WEBM_FILE);
 		server.enqueue(MockResponses.fileInfo("short_low_fps.webm"));
 		server.enqueue(MockResponses.fileDownload(loadResource("short_low_fps.webm")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.WEBM_FILE);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
@@ -231,14 +209,11 @@ class StickerifyTest {
 
 	@Test
 	void convertedGif() throws Exception {
-		server.enqueue(MockResponses.GIF_FILE);
 		server.enqueue(MockResponses.fileInfo("valid.gif"));
 		server.enqueue(MockResponses.fileDownload(loadResource("valid.gif")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.GIF_FILE);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
@@ -254,14 +229,11 @@ class StickerifyTest {
 
 	@Test
 	void documentNotSupported() throws Exception {
-		server.enqueue(MockResponses.DOCUMENT);
 		server.enqueue(MockResponses.fileInfo("document.txt"));
 		server.enqueue(MockResponses.fileDownload(loadResource("document.txt")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.DOCUMENT);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
@@ -277,14 +249,11 @@ class StickerifyTest {
 
 	@Test
 	void corruptedVideo() throws Exception {
-		server.enqueue(MockResponses.CORRUPTED_FILE);
 		server.enqueue(MockResponses.fileInfo("corrupted.mp4"));
 		server.enqueue(MockResponses.fileDownload(loadResource("corrupted.mp4")));
+		server.enqueue(MockResponses.OK);
 
-		startBot();
-
-		var getUpdates = server.takeRequest();
-		assertEquals("/api/token/getUpdates", getUpdates.getPath());
+		makeRequest(MockRequests.CORRUPTED_FILE);
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());

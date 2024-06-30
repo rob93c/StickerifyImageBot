@@ -2,9 +2,9 @@
 .github/
 .gradle/
 .idea/
+assets/
 build/
 src/test/
-src/main/resources/images/
 .gitattributes
 .gitignore
 *.md

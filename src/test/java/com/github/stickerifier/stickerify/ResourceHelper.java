@@ -8,7 +8,7 @@ public final class ResourceHelper {
 
 	public static File loadResource(String filename) {
 		var resource = ResourceHelper.class.getClassLoader().getResource(filename);
-		assumeTrue(resource != null, "Test resource [%s] not found.".formatted(filename));
+		assumeTrue(resource != null, STR."Test resource [\{filename}] not found.");
 
 		return new File(resource.getFile());
 	}

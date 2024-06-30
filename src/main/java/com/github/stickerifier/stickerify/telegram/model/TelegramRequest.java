@@ -12,6 +12,8 @@ import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.Sticker;
 import com.pengrad.telegrambot.model.Video;
 import com.pengrad.telegrambot.model.VideoNote;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -30,6 +32,7 @@ public record TelegramRequest(Message message) {
 	private static final String HELP_COMMAND = "/help";
 	private static final String PRIVACY_COMMAND = "/privacy";
 
+	@Nullable
 	public TelegramFile getFile() {
 		return getMessageMedia()
 				.map(media -> switch (media) {
@@ -59,10 +62,12 @@ public record TelegramRequest(Message message) {
 				.orElse(TelegramFile.TOO_LARGE);
 	}
 
+	@NotNull
 	public Long getChatId() {
 		return message.chat().id();
 	}
 
+	@NotNull
 	public Integer getMessageId() {
 		return message.messageId();
 	}
@@ -73,8 +78,9 @@ public record TelegramRequest(Message message) {
 	 *
 	 * @return the description of the request
 	 */
+	@NotNull
 	public String getDescription() {
-		var description = "request from user " + getUserId();
+		var description = STR."request from user \{getUserId()}";
 
 		if (START_COMMAND.equals(message.text())) {
 			description += NEW_USER;
@@ -87,6 +93,7 @@ public record TelegramRequest(Message message) {
 		return message.from().id();
 	}
 
+	@NotNull
 	public Answer getAnswerMessage() {
 		return switch (message.text()) {
 			case HELP_COMMAND, START_COMMAND -> HELP;
@@ -100,17 +107,10 @@ public record TelegramRequest(Message message) {
 		var file = Optional.ofNullable(getFile()).map(TelegramFile::id).orElse(null);
 		var text = Optional.ofNullable(message.text()).orElse(message.caption());
 
-		return "request ["
-				+ "chat=" + getChatId()
-				+ ", from=" + getUserId()
-				+ writeIfNotEmpty("file", file)
-				+ writeIfNotEmpty("text", text)
-				+ "]";
+		return STR."request [chat=\{getChatId()}, from=\{getUserId()}\{writeIfNotEmpty("file", file)}\{writeIfNotEmpty("text", text)}]";
 	}
 
 	private static String writeIfNotEmpty(String field, String value) {
-		return value != null && !value.isEmpty()
-				? ", " + field + "=" + value
-				: "";
+		return value != null && !value.isEmpty() ? STR.", \{field}=\{value}" : "";
 	}
 }
