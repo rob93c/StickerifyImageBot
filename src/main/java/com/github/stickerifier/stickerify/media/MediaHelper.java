@@ -60,7 +60,8 @@ public final class MediaHelper {
 	private static final int PRESERVE_ASPECT_RATIO = -2;
 	private static final List<String> SUPPORTED_VIDEOS = List.of("image/gif", "video/quicktime", "video/webm",
 			"video/mp4", "video/x-m4v", "application/x-matroska");
-	private static final ConcurrentMap<String, List<ImageReader>> IMAGE_READERS_CACHE = new ConcurrentHashMap<>();
+
+	private static ConcurrentMap<String, List<ImageReader>> imageReadersCache = loadImageReaders();
 
 	/**
 	 * Based on the type of passed-in file, it converts it into the proper media.
@@ -212,13 +213,13 @@ public final class MediaHelper {
 	}
 
 	private static List<ImageReader> getImageReaders(String mimeType) {
-		var imageReaders = IMAGE_READERS_CACHE.get(mimeType);
+		var imageReaders = imageReadersCache.get(mimeType);
 
 		if (imageReaders == null) {
 			var readers = ImageIO.getImageReadersByMIMEType(mimeType);
 			imageReaders = new ArrayList<>();
 			readers.forEachRemaining(imageReaders::add);
-			IMAGE_READERS_CACHE.put(mimeType, imageReaders);
+			imageReadersCache.put(mimeType, imageReaders);
 
 			if (imageReaders.isEmpty()) {
 				LOGGER.atInfo().log("No image readers found for {} MIME type", mimeType);
@@ -226,6 +227,18 @@ public final class MediaHelper {
 		}
 
 		return imageReaders;
+	}
+
+	private static ConcurrentMap<String, List<ImageReader>> loadImageReaders() {
+		imageReadersCache = new ConcurrentHashMap<>();
+
+		var imageMimeTypes = List.of("image/gif", "image/png",
+				"image/jpeg", "image/svg+xml", "image/tiff",
+				"image/vnd.adobe.photoshop", "image/vnd.microsoft.icon");
+
+		imageMimeTypes.forEach(MediaHelper::getImageReaders);
+
+		return imageReadersCache;
 	}
 
 	/**
