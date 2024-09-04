@@ -23,6 +23,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
 import com.sksamuel.scrimage.ImmutableImage;
+import com.sksamuel.scrimage.nio.ImageIOReader;
+import com.sksamuel.scrimage.nio.ImmutableImageLoader;
 import com.sksamuel.scrimage.webp.WebpWriter;
 import org.apache.tika.Tika;
 import org.slf4j.Logger;
@@ -33,11 +35,15 @@ import ws.schild.jave.info.MultimediaInfo;
 import ws.schild.jave.process.ProcessLocator;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.zip.GZIPInputStream;
 
 public final class MediaHelper {
@@ -54,6 +60,7 @@ public final class MediaHelper {
 	private static final int PRESERVE_ASPECT_RATIO = -2;
 	private static final List<String> SUPPORTED_VIDEOS = List.of("image/gif", "video/quicktime", "video/webm",
 			"video/mp4", "video/x-m4v", "application/x-matroska");
+	private static final ConcurrentMap<String, List<ImageReader>> IMAGE_READERS_CACHE = new ConcurrentHashMap<>();
 
 	/**
 	 * Based on the type of passed-in file, it converts it into the proper media.
@@ -77,7 +84,7 @@ public final class MediaHelper {
 				return null;
 			}
 
-			var image = toImage(inputFile);
+			var image = toImage(inputFile, mimeType);
 			if (image != null) {
 				boolean isFileSizeCompliant = isFileSizeLowerThan(inputFile, MAX_IMAGE_FILE_SIZE);
 
@@ -184,15 +191,41 @@ public final class MediaHelper {
 	 * If the file isn't a supported image, {@code null} is returned.
 	 *
 	 * @param file the file to read
+	 * @param mimeType the MIME type of the file
 	 * @return the image, if supported by {@link ImageIO}
 	 * @throws FileOperationException if an error occurred processing passed-in file
 	 */
-	private static ImmutableImage toImage(File file) throws FileOperationException {
+	private static ImmutableImage toImage(File file, String mimeType) throws FileOperationException {
 		try {
-			return ImmutableImage.loader().fromFile(file);
+			if ("image/webp".equals(mimeType)) {
+				return ImmutableImage.loader().fromFile(file);
+			}
+
+			var imageReader = new ImageIOReader(getImageReaders(mimeType));
+
+			return ImmutableImageLoader.create()
+					.withImageReaders(List.of(imageReader))
+					.fromFile(file);
 		} catch (IOException _) {
 			return null;
 		}
+	}
+
+	private static List<ImageReader> getImageReaders(String mimeType) {
+		var imageReaders = IMAGE_READERS_CACHE.get(mimeType);
+
+		if (imageReaders == null) {
+			var readers = ImageIO.getImageReadersByMIMEType(mimeType);
+			imageReaders = new ArrayList<>();
+			readers.forEachRemaining(imageReaders::add);
+			IMAGE_READERS_CACHE.put(mimeType, imageReaders);
+
+			if (imageReaders.isEmpty()) {
+				LOGGER.atInfo().log("No image readers found for {} MIME type", mimeType);
+			}
+		}
+
+		return imageReaders;
 	}
 
 	/**
