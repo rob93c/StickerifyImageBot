@@ -184,7 +184,7 @@ public final class MockResponses {
 							},
 							photo: [
 								{
-									file_id: "valid.webp",
+									file_id: "static.webp",
 									file_size: 200000
 								}
 							]

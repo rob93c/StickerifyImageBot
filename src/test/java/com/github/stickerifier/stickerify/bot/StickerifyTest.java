@@ -163,8 +163,8 @@ class StickerifyTest {
 	@Test
 	void convertedWebp() throws Exception {
 		server.enqueue(MockResponses.WEBP_FILE);
-		server.enqueue(MockResponses.fileInfo("valid.webp"));
-		server.enqueue(MockResponses.fileDownload(loadResource("valid.webp")));
+		server.enqueue(MockResponses.fileInfo("static.webp"));
+		server.enqueue(MockResponses.fileDownload(loadResource("static.webp")));
 
 		startBot();
 
@@ -173,10 +173,10 @@ class StickerifyTest {
 
 		var getFile = server.takeRequest();
 		assertEquals("/api/token/getFile", getFile.getPath());
-		assertEquals("file_id=valid.webp", getFile.getBody().readUtf8());
+		assertEquals("file_id=static.webp", getFile.getBody().readUtf8());
 
 		var download = server.takeRequest();
-		assertEquals("/files/token/valid.webp", download.getPath());
+		assertEquals("/files/token/static.webp", download.getPath());
 
 		var sendDocument = server.takeRequest();
 		assertEquals("/api/token/sendDocument", sendDocument.getPath());
