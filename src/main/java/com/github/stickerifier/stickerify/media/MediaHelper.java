@@ -42,8 +42,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.zip.GZIPInputStream;
 
 public final class MediaHelper {
@@ -60,8 +58,6 @@ public final class MediaHelper {
 	private static final int PRESERVE_ASPECT_RATIO = -2;
 	private static final List<String> SUPPORTED_VIDEOS = List.of("image/gif", "video/quicktime", "video/webm",
 			"video/mp4", "video/x-m4v", "application/x-matroska");
-
-	private static ConcurrentMap<String, List<ImageReader>> imageReadersCache = loadImageReaders();
 
 	/**
 	 * Based on the type of passed-in file, it converts it into the proper media.
@@ -194,15 +190,14 @@ public final class MediaHelper {
 	 * @param file the file to read
 	 * @param mimeType the MIME type of the file
 	 * @return the image, if supported by {@link ImageIO}
-	 * @throws FileOperationException if an error occurred processing passed-in file
 	 */
-	private static ImmutableImage toImage(File file, String mimeType) throws FileOperationException {
+	private static ImmutableImage toImage(File file, String mimeType) {
 		try {
 			if ("image/webp".equals(mimeType)) {
 				return ImmutableImage.loader().fromFile(file);
 			}
 
-			var imageReader = new ImageIOReader(getImageReaders(mimeType));
+			var imageReader = getImageReader(mimeType);
 
 			return ImmutableImageLoader.create()
 					.withImageReaders(List.of(imageReader))
@@ -212,33 +207,16 @@ public final class MediaHelper {
 		}
 	}
 
-	private static List<ImageReader> getImageReaders(String mimeType) {
-		var imageReaders = imageReadersCache.get(mimeType);
+	private static ImageIOReader getImageReader(String mimeType) {
+		var imageReaders = new ArrayList<ImageReader>();
+		var readers = ImageIO.getImageReadersByMIMEType(mimeType);
+		readers.forEachRemaining(imageReaders::add);
 
-		if (imageReaders == null) {
-			var readers = ImageIO.getImageReadersByMIMEType(mimeType);
-			imageReaders = new ArrayList<>();
-			readers.forEachRemaining(imageReaders::add);
-			imageReadersCache.put(mimeType, imageReaders);
-
-			if (imageReaders.isEmpty()) {
-				LOGGER.atInfo().log("No image readers found for {} MIME type", mimeType);
-			}
+		if (imageReaders.isEmpty()) {
+			LOGGER.atInfo().log("No image readers found for {} MIME type", mimeType);
 		}
 
-		return imageReaders;
-	}
-
-	private static ConcurrentMap<String, List<ImageReader>> loadImageReaders() {
-		imageReadersCache = new ConcurrentHashMap<>();
-
-		var imageMimeTypes = List.of("image/gif", "image/png",
-				"image/jpeg", "image/svg+xml", "image/tiff",
-				"image/vnd.adobe.photoshop", "image/vnd.microsoft.icon");
-
-		imageMimeTypes.forEach(MediaHelper::getImageReaders);
-
-		return imageReadersCache;
+		return new ImageIOReader(imageReaders);
 	}
 
 	/**
