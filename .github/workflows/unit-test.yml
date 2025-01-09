@@ -24,10 +24,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup FFmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v3
+        uses: AnimMouse/setup-ffmpeg@v1
         with:
-          # bump: ffmpeg-ci /ffmpeg-version: '([\d.]+)'/ docker:mwader/static-ffmpeg|~7.0
-          ffmpeg-version: '7.0.2'
+          version: master
 
       - name: Setup Java
         uses: actions/setup-java@v4
